@@ -6,7 +6,8 @@ Animated robot face on a Pimoroni Scroll pHAT HD, driven by a Raspberry Pi Zero 
 
 - **Robot face** — cycles through neutral, happy, surprised, and sleepy expressions
 - **Blinking** — randomized eye blinks between expression changes
-- **Brightness modes** — bright, normal, and dark with gamma correction
+- **Dynamic brightness** — auto-adjusts based on solar elevation and cloud cover (Open-Meteo API)
+- **Brightness modes** — bright, normal, and dark with gamma correction; static override available
 - **Graceful shutdown** — clears the display on SIGTERM/SIGINT
 - **systemd service** — auto-starts on boot, restarts on failure
 - **No CGO** — pure-Go I2C driver, single static binary
@@ -36,26 +37,48 @@ sudo i2cdetect -y 1   # should show 0x74
 
 ```bash
 make deploy           # cross-compile and scp to Pi
-make install-service  # install systemd service
+make install-service  # install systemd service (creates /etc/botpi.conf)
 make status           # verify it's running
+```
+
+Configure location on the Pi (`/etc/botpi.conf`):
+```
+LAT=37.77
+LON=-122.43
+```
+
+Create a `.env` file (gitignored) for your Pi deployment config:
+```bash
+echo 'PI_USER=pi' >> .env
+echo 'PI_HOST=pi@mypi.local' >> .env
+echo 'LAT=37.77' >> .env
+echo 'LON=-122.43' >> .env
 ```
 
 ### Run Interactively
 
 ```bash
-make run                                                    # default: normal brightness
-ssh misham@botpi.local "/home/misham/botpi -brightness dark"  # dark mode
+make run        # uses .env values
+make run LAT=0  # command-line overrides .env
 ```
 
 ## Usage
 
 ```
-botpi [-brightness bright|normal|dark]
+botpi [-brightness auto|bright|normal|dark] [-lat <latitude> -lon <longitude>]
 ```
 
 | Flag | Values | Default | Description |
 |------|--------|---------|-------------|
-| `-brightness` | `bright`, `normal`, `dark` | `normal` | LED brightness level |
+| `-brightness` | `auto`, `bright`, `normal`, `dark` | `auto` | LED brightness level |
+| `-lat` | float | — | Latitude (required for `auto` mode) |
+| `-lon` | float | — | Longitude (required for `auto` mode) |
+
+In `auto` mode, brightness adjusts every 30 minutes based on:
+- **Solar elevation** — dark at night, normal at twilight, bright during the day
+- **Cloud cover** — heavy overcast (≥80%) dims bright to normal
+
+If weather data is unavailable, falls back to solar-only brightness.
 
 ## Development
 
@@ -65,6 +88,8 @@ make test           # run tests with race detector
 make lint           # run golangci-lint
 make fmt            # format with gofumpt
 make check          # run all checks (fmt + vet + lint)
+make debug          # debug build with verbose brightness logging
+make deploy-debug   # deploy debug build to Pi
 ```
 
 ## Architecture
@@ -73,6 +98,7 @@ make check          # run all checks (fmt + vet + lint)
 main.go          CLI entry point, signal handling
 face/            Expression definitions and animation state machine
 display/         17x7 pixel buffer, brightness, gamma correction
+brightness/      Dynamic brightness controller (solar + weather)
 driver/          IS31FL3731 I2C driver (reusable)
 ```
 

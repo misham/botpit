@@ -1,6 +1,9 @@
 package display
 
-import "math"
+import (
+	"math"
+	"sync/atomic"
+)
 
 // Display dimensions and hardware constants.
 const (
@@ -40,15 +43,14 @@ func init() {
 type Display struct {
 	device     PWMShower
 	buf        [Height][Width]byte // pixel buffer, 0-255 per pixel
-	brightness Brightness
+	brightness atomic.Int32        // stores Brightness; owned by controller goroutine, read by animator
 }
 
 // New creates a new Display.
 func New(dev PWMShower, brightness Brightness) *Display {
-	return &Display{
-		device:     dev,
-		brightness: brightness,
-	}
+	d := &Display{device: dev}
+	d.brightness.Store(int32(brightness)) //nolint:gosec // Brightness is a small enum (0-2)
+	return d
 }
 
 // SetPixel sets a pixel brightness (0-255) at display coordinates.
@@ -68,7 +70,10 @@ func (d *Display) Clear() {
 // Show flushes the buffer to the hardware display.
 func (d *Display) Show() error {
 	pwm := make([]byte, PWMBufSize)
-	scale := brightnessScale[d.brightness]
+	scale, ok := brightnessScale[Brightness(d.brightness.Load())]
+	if !ok {
+		scale = brightnessScale[BrightnessNormal]
+	}
 
 	for y := range Height {
 		for x := range Width {
@@ -90,7 +95,7 @@ func (d *Display) Show() error {
 
 // SetBrightness changes the brightness mode.
 func (d *Display) SetBrightness(b Brightness) {
-	d.brightness = b
+	d.brightness.Store(int32(b)) //nolint:gosec // Brightness is a small enum (0-2)
 }
 
 // pixelAddr converts display (x, y) to IS31FL3731 PWM buffer index.

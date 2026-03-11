@@ -160,6 +160,32 @@ func TestSetBrightness(t *testing.T) {
 	}
 }
 
+func TestSetBrightnessConcurrent(t *testing.T) { //nolint:revive // race detector uses t implicitly
+	mock := &mockPWMWriter{}
+	d := New(mock, BrightnessNormal)
+
+	// Fill buffer so Show does real work
+	for y := range Height {
+		for x := range Width {
+			d.SetPixel(x, y, 128)
+		}
+	}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for range 1000 {
+			d.SetBrightness(BrightnessDark)
+			d.SetBrightness(BrightnessBright)
+		}
+	}()
+
+	for range 1000 {
+		_ = d.Show()
+	}
+	<-done
+}
+
 func TestShowClearBuffer(t *testing.T) {
 	mock := &mockPWMWriter{}
 	d := New(mock, BrightnessNormal)

@@ -1,4 +1,7 @@
 botpi
 coverage.out
+.env
 *.db
 docs/ai/*
+*.local.json
+*.local.md

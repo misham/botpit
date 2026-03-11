@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/misham/botpi/brightness"
 	"github.com/misham/botpi/display"
 	"github.com/misham/botpi/driver"
 	"github.com/misham/botpi/face"
@@ -17,20 +18,32 @@ import (
 )
 
 func main() {
-	brightnessFlag := flag.String("brightness", "normal", "brightness level: bright, normal, dark")
+	brightnessFlag := flag.String("brightness", "auto", "brightness level: auto, bright, normal, dark")
+	lat := flag.Float64("lat", 0, "latitude for auto brightness (required with -brightness auto)")
+	lon := flag.Float64("lon", 0, "longitude for auto brightness (required with -brightness auto)")
 	flag.Parse()
 
-	var brightness display.Brightness
-	switch *brightnessFlag {
-	case "bright":
-		brightness = display.BrightnessBright
-	case "normal":
-		brightness = display.BrightnessNormal
-	case "dark":
-		brightness = display.BrightnessDark
-	default:
-		fmt.Fprintf(os.Stderr, "unknown brightness %q, use: bright, normal, dark\n", *brightnessFlag)
-		os.Exit(1)
+	var bright display.Brightness
+	dynamicBrightness := *brightnessFlag == "auto"
+
+	if !dynamicBrightness {
+		switch *brightnessFlag {
+		case "bright":
+			bright = display.BrightnessBright
+		case "normal":
+			bright = display.BrightnessNormal
+		case "dark":
+			bright = display.BrightnessDark
+		default:
+			fmt.Fprintf(os.Stderr, "unknown brightness %q, use: auto, bright, normal, dark\n", *brightnessFlag)
+			os.Exit(1)
+		}
+	} else {
+		if *lat == 0 && *lon == 0 {
+			fmt.Fprintln(os.Stderr, "auto brightness requires -lat and -lon flags")
+			os.Exit(1)
+		}
+		bright = display.BrightnessNormal // initial value until controller updates
 	}
 
 	// Initialize periph.io host
@@ -52,7 +65,7 @@ func main() {
 	}
 
 	// Create display and animator
-	disp := display.New(dev, brightness)
+	disp := display.New(dev, bright)
 	anim := face.NewAnimator(disp)
 
 	// Handle graceful shutdown
@@ -63,6 +76,13 @@ func main() {
 		<-sigs
 		close(stop)
 	}()
+
+	// Start dynamic brightness controller if in auto mode
+	if dynamicBrightness {
+		loc := brightness.Location{Lat: *lat, Lon: *lon}
+		ctrl := brightness.NewController(disp, loc, brightness.DefaultWeatherURL)
+		go ctrl.Run(stop)
+	}
 
 	log.Printf("botpi started (brightness=%s)", *brightnessFlag)
 

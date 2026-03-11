@@ -4,8 +4,9 @@ After=multi-user.target
 
 [Service]
 Type=exec
-User=misham
-ExecStart=/home/misham/botpi -brightness normal
+User=PI_USER
+EnvironmentFile=/etc/botpi.conf
+ExecStart=PI_PATH -lat ${LAT} -lon ${LON}
 Restart=on-failure
 RestartSec=5s
 StandardOutput=journal
