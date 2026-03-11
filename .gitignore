@@ -2,6 +2,14 @@ botpi
 coverage.out
 .env
 *.db
-docs/ai/*
+!kb.db
 *.local.json
 *.local.md
+bin/
+*.test
+*.exe
+.idea/
+.vscode/
+*.swp
+.DS_Store
+coverage.out
