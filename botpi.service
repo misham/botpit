@@ -1,0 +1,15 @@
+[Unit]
+Description=BotPi Robot Face
+After=multi-user.target
+
+[Service]
+Type=exec
+User=misham
+ExecStart=/home/misham/botpi -brightness normal
+Restart=on-failure
+RestartSec=5s
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

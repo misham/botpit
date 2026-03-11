@@ -1,0 +1,98 @@
+version: "2"
+
+linters:
+  enable:
+    # bugs
+    - bodyclose
+    - durationcheck
+    - errcheck
+    - govet
+    - makezero
+    - nilerr
+    - noctx
+    - staticcheck
+    - unconvert
+    - unparam
+    - unused
+    - wastedassign
+
+    # error handling
+    - errname
+    - errorlint
+
+    # style
+    - asciicheck
+    - dupword
+    - godot
+    - ineffassign
+    - mirror
+    - nakedret
+    - nonamedreturns
+    - perfsprint
+    - predeclared
+    - revive
+    - usestdlibvars
+    - whitespace
+
+    # complexity
+    - cyclop
+    - gocognit
+    - nestif
+
+    # security
+    - gosec
+
+    # performance
+    - intrange
+    - copyloopvar
+
+  settings:
+    cyclop:
+      max-complexity: 15
+
+    errcheck:
+      check-type-assertions: true
+
+    gocognit:
+      min-complexity: 20
+
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment
+
+    nakedret:
+      max-func-lines: 0
+
+    nonamedreturns:
+      report-error-in-defer: true
+
+    perfsprint:
+      strconcat: false
+
+  exclusions:
+    presets:
+      - std-error-handling
+      - common-false-positives
+    rules:
+      - path: _test\.go$
+        linters:
+          - funlen
+          - gocognit
+          - cyclop
+          - gosec
+          - noctx
+      - path: _test\.go$
+        text: "shadow"
+        linters:
+          - govet
+      - text: "package-comments"
+        linters:
+          - revive
+
+formatters:
+  enable:
+    - gofumpt
+  settings:
+    gofumpt:
+      module-path: github.com/misham/botpi
