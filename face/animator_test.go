@@ -38,7 +38,7 @@ func (m *mockDisplay) Show() error {
 
 func TestNewAnimator(t *testing.T) {
 	mock := newMockDisplay()
-	a := NewAnimator(mock)
+	a := NewAnimator(mock, nil)
 	if a == nil {
 		t.Fatal("NewAnimator returned nil")
 	}
@@ -47,9 +47,18 @@ func TestNewAnimator(t *testing.T) {
 	}
 }
 
+func TestNewAnimatorWithWords(t *testing.T) {
+	mock := newMockDisplay()
+	words := []string{"hello", "world"}
+	a := NewAnimator(mock, words)
+	if len(a.words) != 2 {
+		t.Errorf("expected 2 words, got %d", len(a.words))
+	}
+}
+
 func TestDrawExpression(t *testing.T) {
 	mock := newMockDisplay()
-	a := NewAnimator(mock)
+	a := NewAnimator(mock, nil)
 
 	if err := a.drawExpression(Neutral); err != nil {
 		t.Fatalf("drawExpression failed: %v", err)
@@ -79,7 +88,7 @@ func TestDrawExpression(t *testing.T) {
 func TestDrawExpressionError(t *testing.T) {
 	mock := newMockDisplay()
 	mock.showErr = errShow
-	a := NewAnimator(mock)
+	a := NewAnimator(mock, nil)
 
 	if err := a.drawExpression(Neutral); !errors.Is(err, errShow) {
 		t.Errorf("drawExpression error = %v, want %v", err, errShow)
@@ -88,7 +97,7 @@ func TestDrawExpressionError(t *testing.T) {
 
 func TestDoBlink(t *testing.T) {
 	mock := newMockDisplay()
-	a := NewAnimator(mock)
+	a := NewAnimator(mock, nil)
 	a.current = 0
 
 	stop := make(chan struct{})
@@ -104,7 +113,7 @@ func TestDoBlink(t *testing.T) {
 
 func TestDoBlinkStopDuringWait(t *testing.T) {
 	mock := newMockDisplay()
-	a := NewAnimator(mock)
+	a := NewAnimator(mock, nil)
 	a.current = 0
 
 	stop := make(chan struct{})
@@ -135,7 +144,7 @@ func TestDoBlinkStopDuringWait(t *testing.T) {
 func TestDoBlinkShowError(t *testing.T) {
 	mock := newMockDisplay()
 	mock.showErr = errShow
-	a := NewAnimator(mock)
+	a := NewAnimator(mock, nil)
 	a.current = 0
 
 	stop := make(chan struct{})
@@ -146,7 +155,7 @@ func TestDoBlinkShowError(t *testing.T) {
 
 func TestRunStopsOnSignal(t *testing.T) {
 	mock := newMockDisplay()
-	a := NewAnimator(mock)
+	a := NewAnimator(mock, nil)
 
 	stop := make(chan struct{})
 	done := make(chan error, 1)
@@ -176,7 +185,7 @@ func TestRunStopsOnSignal(t *testing.T) {
 func TestRunInitialDrawError(t *testing.T) {
 	mock := newMockDisplay()
 	mock.showErr = errShow
-	a := NewAnimator(mock)
+	a := NewAnimator(mock, nil)
 
 	stop := make(chan struct{})
 	err := a.Run(stop)
@@ -185,9 +194,82 @@ func TestRunInitialDrawError(t *testing.T) {
 	}
 }
 
+func TestScrollWordShowCalls(t *testing.T) {
+	mock := newMockDisplay()
+	a := NewAnimator(mock, nil)
+
+	stop := make(chan struct{})
+	if err := a.scrollWord("ab", stop); err != nil {
+		t.Fatalf("scrollWord failed: %v", err)
+	}
+
+	// "ab" renders to width = 2*(5+1)-1 = 11 columns
+	// totalFrames = wordWidth + display.Width = 11 + 17 = 28
+	// loop runs frame=1..28 → 28 Show calls
+	wantCalls := 28
+	if mock.showCalls != wantCalls {
+		t.Errorf("Show calls = %d, want %d", mock.showCalls, wantCalls)
+	}
+}
+
+func TestScrollWordStopChannel(t *testing.T) {
+	mock := newMockDisplay()
+	a := NewAnimator(mock, nil)
+
+	stop := make(chan struct{})
+	done := make(chan error, 1)
+	go func() {
+		done <- a.scrollWord("example", stop)
+	}()
+
+	// Let a few frames render, then stop
+	time.Sleep(50 * time.Millisecond)
+	close(stop)
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("scrollWord returned error: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("scrollWord did not stop within timeout")
+	}
+
+	// Should have fewer Show calls than the full scroll
+	// "example" = 7 chars, width = 7*6-1 = 41, totalFrames = 41+17 = 58
+	if mock.showCalls >= 58 {
+		t.Errorf("expected fewer than 58 Show calls, got %d", mock.showCalls)
+	}
+}
+
+func TestScrollWordShowError(t *testing.T) {
+	mock := newMockDisplay()
+	mock.showErr = errShow
+	a := NewAnimator(mock, nil)
+
+	stop := make(chan struct{})
+	if err := a.scrollWord("a", stop); !errors.Is(err, errShow) {
+		t.Errorf("scrollWord error = %v, want %v", err, errShow)
+	}
+}
+
+func TestScrollWordEmptyString(t *testing.T) {
+	mock := newMockDisplay()
+	a := NewAnimator(mock, nil)
+
+	stop := make(chan struct{})
+	if err := a.scrollWord("", stop); err != nil {
+		t.Fatalf("scrollWord failed: %v", err)
+	}
+
+	if mock.showCalls != 0 {
+		t.Errorf("Show calls = %d, want 0 for empty word", mock.showCalls)
+	}
+}
+
 func TestRunDrawsAllExpressions(t *testing.T) {
 	mock := newMockDisplay()
-	a := NewAnimator(mock)
+	a := NewAnimator(mock, nil)
 
 	// Draw each expression directly to verify they all work.
 	for i, expr := range a.expressions {

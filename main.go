@@ -1,11 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	"github.com/misham/botpi/brightness"
@@ -66,7 +68,8 @@ func main() {
 
 	// Create display and animator
 	disp := display.New(dev, bright)
-	anim := face.NewAnimator(disp)
+	words := loadWordsFile()
+	anim := face.NewAnimator(disp, words)
 
 	// Handle graceful shutdown
 	stop := make(chan struct{})
@@ -96,4 +99,28 @@ func main() {
 	if err := dev.Shutdown(); err != nil {
 		log.Printf("shutdown error: %v", err)
 	}
+}
+
+// loadWordsFile reads words.json from next to the executable.
+// Returns nil if the file doesn't exist or is invalid.
+func loadWordsFile() []string {
+	exe, err := os.Executable()
+	if err != nil {
+		return nil
+	}
+	path := filepath.Join(filepath.Dir(exe), "words.json")
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+
+	var wl struct {
+		Words []string `json:"words"`
+	}
+	if err := json.Unmarshal(data, &wl); err != nil {
+		log.Printf("invalid words.json: %v", err)
+		return nil
+	}
+	return wl.Words
 }

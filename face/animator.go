@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/misham/botpi/display"
+	"github.com/misham/botpi/font"
 )
 
 // Animator manages face animation state and timing.
@@ -12,10 +13,12 @@ type Animator struct {
 	display     Displayer
 	expressions []Expression
 	current     int
+	words       []string
 }
 
 // NewAnimator creates a new face animator.
-func NewAnimator(d Displayer) *Animator {
+// Words is a list of words to randomly scroll between expression changes.
+func NewAnimator(d Displayer, words []string) *Animator {
 	return &Animator{
 		display: d,
 		expressions: []Expression{
@@ -24,6 +27,7 @@ func NewAnimator(d Displayer) *Animator {
 			Surprised,
 			Sleepy,
 		},
+		words: words,
 	}
 }
 
@@ -50,17 +54,34 @@ func (a *Animator) Run(stop <-chan struct{}) error {
 				return err
 			}
 		} else {
-			// Pick a different expression
-			next := rand.IntN(len(a.expressions) - 1) //nolint:gosec // animation timing does not need crypto rand
-			if next >= a.current {
-				next++
-			}
-			a.current = next
-			if err := a.drawExpression(a.expressions[a.current]); err != nil {
+			if err := a.doExpressionChange(stop); err != nil {
 				return err
 			}
 		}
 	}
+}
+
+// doExpressionChange picks a new expression and optionally shows a scrolling word.
+func (a *Animator) doExpressionChange(stop <-chan struct{}) error {
+	next := rand.IntN(len(a.expressions) - 1) //nolint:gosec // animation timing does not need crypto rand
+	if next >= a.current {
+		next++
+	}
+	a.current = next
+	if err := a.drawExpression(a.expressions[a.current]); err != nil {
+		return err
+	}
+
+	// ~33% chance to show a word after expression change.
+	if len(a.words) > 0 && rand.Float64() < 0.33 { //nolint:gosec // animation timing does not need crypto rand
+		word := a.words[rand.IntN(len(a.words))] //nolint:gosec // animation timing does not need crypto rand
+		if err := a.scrollWord(word, stop); err != nil {
+			return err
+		}
+		return a.drawExpression(a.expressions[a.current])
+	}
+
+	return nil
 }
 
 // doBlink performs a quick blink animation (close eyes, pause, reopen).
@@ -89,6 +110,46 @@ func (a *Animator) doBlink(stop <-chan struct{}) error {
 	}
 
 	return a.drawExpression(a.expressions[a.current])
+}
+
+// scrollWord renders a word scrolling left across the display.
+// The word enters from the right edge and exits the left edge.
+func (a *Animator) scrollWord(word string, stop <-chan struct{}) error {
+	buf, wordWidth := font.Render(word, 180)
+	if wordWidth == 0 {
+		return nil
+	}
+
+	totalFrames := wordWidth + display.Width
+	stepDelay := time.Duration(10000/totalFrames) * time.Millisecond
+
+	for frame := 1; frame <= totalFrames; frame++ {
+		a.display.Clear()
+
+		for dx := range display.Width {
+			srcX := frame - display.Width + dx
+			if srcX < 0 || srcX >= wordWidth {
+				continue
+			}
+			for y := range display.Height {
+				if buf[y][srcX] > 0 {
+					a.display.SetPixel(dx, y, buf[y][srcX])
+				}
+			}
+		}
+
+		if err := a.display.Show(); err != nil {
+			return err
+		}
+
+		select {
+		case <-stop:
+			return nil
+		case <-time.After(stepDelay):
+		}
+	}
+
+	return nil
 }
 
 // drawExpression renders an expression to the display.

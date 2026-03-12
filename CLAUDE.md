@@ -42,7 +42,8 @@ Animated robot face on a Pimoroni Scroll pHAT HD (17x7 white LED matrix, IS31FL3
 
 - **`driver/`** — IS31FL3731 I2C driver. Register communication, initialization, frame selection, double-buffered PWM writes. Reusable for any IS31FL3731 board.
 - **`display/`** — 17x7 display buffer with Scroll pHAT HD pixel mapping, gamma correction (γ=2.2), three brightness modes, 180° rotation (board is mounted upside down).
-- **`face/`** — Expression definitions (neutral, happy, surprised, sleepy, blink) and animation state machine with randomized timing.
+- **`font/`** — 5x7 pixel font and text rendering for the LED matrix. Renders strings into wide pixel buffers for horizontal scrolling.
+- **`face/`** — Expression definitions (neutral, happy, surprised, sleepy, blink), animation state machine with randomized timing, and scrolling word display between expressions.
 - **`brightness/`** — Dynamic brightness controller. Solar elevation via `go-sunrise`, cloud cover via Open-Meteo. Requires `-lat`/`-lon` flags for location. Runs a 30-minute tick goroutine. Debug logging controlled by `debugMode` ldflags variable.
 - **`main.go`** — CLI entry point with `-brightness` (default `auto`), `-lat`, `-lon` flags and SIGTERM/SIGINT handling.
 

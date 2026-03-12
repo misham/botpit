@@ -5,6 +5,7 @@ Animated robot face on a Pimoroni Scroll pHAT HD, driven by a Raspberry Pi Zero 
 ## Features
 
 - **Robot face** — cycles through neutral, happy, surprised, and sleepy expressions
+- **Scrolling words** — displays words scrolling across the LED matrix between expression changes
 - **Blinking** — randomized eye blinks between expression changes
 - **Dynamic brightness** — auto-adjusts based on solar elevation and cloud cover (Open-Meteo API)
 - **Brightness modes** — bright, normal, and dark with gamma correction; static override available
@@ -92,11 +93,26 @@ make debug          # debug build with verbose brightness logging
 make deploy-debug   # deploy debug build to Pi
 ```
 
+## Customizing Words
+
+The robot displays scrolling words between face expressions. To enable this,
+create a `words.json` file next to the binary:
+
+```json
+{
+  "words": ["compassion", "connection", "creativity", "curiosity"]
+}
+```
+
+If `words.json` is absent or empty, word display is disabled (faces only).
+For deployment, `scp` the file to the same directory as the binary on the Pi.
+
 ## Architecture
 
 ```
 main.go          CLI entry point, signal handling
-face/            Expression definitions and animation state machine
+font/            5x7 pixel font and text rendering for LED scrolling
+face/            Expression definitions, animation state machine, word display
 display/         17x7 pixel buffer, brightness, gamma correction
 brightness/      Dynamic brightness controller (solar + weather)
 driver/          IS31FL3731 I2C driver (reusable)

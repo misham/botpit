@@ -132,6 +132,7 @@ deploy-debug: debug check-pi-vars
 	-ssh $(PI_HOST) "sudo systemctl stop $(APP).service 2>/dev/null"
 	scp $(APP) $(PI_HOST):$(PI_PATH)
 	ssh $(PI_HOST) "chmod +x $(PI_PATH)"
+	@if [ -f words.json ]; then scp words.json $(PI_HOST):$$(dirname $(PI_PATH))/words.json; fi
 	-ssh $(PI_HOST) "sudo systemctl start $(APP).service 2>/dev/null"
 
 # Deploy binary to Pi (stops/starts service automatically)
@@ -139,6 +140,7 @@ deploy: build check-pi-vars
 	-ssh $(PI_HOST) "sudo systemctl stop $(APP).service 2>/dev/null"
 	scp $(APP) $(PI_HOST):$(PI_PATH)
 	ssh $(PI_HOST) "chmod +x $(PI_PATH)"
+	@if [ -f words.json ]; then scp words.json $(PI_HOST):$$(dirname $(PI_PATH))/words.json; fi
 	-ssh $(PI_HOST) "sudo systemctl start $(APP).service 2>/dev/null"
 
 # Deploy and run interactively
